@@ -110,14 +110,15 @@ input[type="text"] {
 .modal-content {
     background-color: var(--bg-color);
     border: 2px solid var(--accent-gold);
-    margin: 10% auto;
-    padding: 20px;
+    margin: 5vh auto; /* 上下の余白を詰めて画面に収まりやすくする */
+    padding: 20px 20px 40px 20px; /* 下の余白を多めに取って見切れを防ぐ */
     width: 90%;
     max-width: 500px;
     border-radius: 8px;
     position: relative;
-    max-height: 80vh;
+    max-height: 85vh; /* 高さを少し広げる */
     overflow-y: auto;
+    box-sizing: border-box; /* パディングを含めて高さを計算させる */
 }
 
 .close-btn {

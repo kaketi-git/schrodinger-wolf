@@ -11,7 +11,6 @@ app.use(express.static('public'));
 const rooms = {};
 const CITIZEN_ROLES = ['見習い占い師', 'ひねくれ者', '噂好きの市民', 'ギャンブラー', 'プロファイラー', 'トラッパー'];
 
-// 確率をパーセントで計算
 const chance = (percent) => Math.random() * 100 < percent;
 
 io.on('connection', (socket) => {
@@ -43,7 +42,7 @@ io.on('connection', (socket) => {
 
         const wolfIndex = Math.floor(Math.random() * room.players.length);
         room.players.forEach((p, index) => {
-            p.gamblerUses = 0; // ギャンブラーの使用回数初期化
+            p.gamblerUses = 0;
             if (index === wolfIndex) { p.role = '人狼'; room.wolfId = p.id; }
             else { p.role = CITIZEN_ROLES[Math.floor(Math.random() * CITIZEN_ROLES.length)]; }
             io.to(p.id).emit('yourRole', p.role);
@@ -97,12 +96,11 @@ io.on('connection', (socket) => {
         if (phase === 'night_wolf') { 
             room.actions = {}; 
             room.votes = {}; 
-            room.currentJammer = null; // その日の妨害情報をリセット
+            room.currentJammer = null; 
         }
         io.to(room.id).emit('phaseUpdated', { day: room.day, phase: room.phase, players: room.players });
     }
 
-    // --- 夜の行動とログの処理 ---
     function resolveNightActions(room) {
         const wolfAction = room.actions[room.wolfId] || { targetId: 'skip' };
         let sysLogs = {};
@@ -126,7 +124,6 @@ io.on('connection', (socket) => {
         const jammerTarget = trappedWolf ? null : wolfAction.targetId;
         const jammerType = trappedWolf ? null : wolfAction.actionType;
         
-        // 夕方の公開投票にも影響させるため、妨害内容を保存しておく
         room.currentJammer = { target: jammerTarget, type: jammerType };
 
         // 2. 市民のアクション判定
@@ -140,12 +137,15 @@ io.on('connection', (socket) => {
             const targetPlayer = room.players.find(tp => tp.id === act.targetId);
             if (!targetPlayer) return;
 
-            const isJammedAction = (jammerType === '1' && jammerTarget === p.id);
-            const isJammedTarget = (jammerType === '2' && jammerTarget === act.targetId);
-            const isJammed = isJammedAction || isJammedTarget;
+            // --- 妨害判定（擬態の追加） ---
+            const isJammedAction = (jammerType === '1' && jammerTarget === p.id); // 思考妨害
+            const isJammedTarget = (jammerType === '2' && jammerTarget === act.targetId); // 情報妨害
+            const isMimicryDefended = (jammerType === '3' && act.targetId === room.wolfId); // ★追加：擬態時に狙われた場合
+            
+            const isJammed = isJammedAction || isJammedTarget || isMimicryDefended;
 
             if (p.role === '見習い占い師') {
-                let result = chance(70) ? (targetPlayer.role === '人狼') : (targetPlayer.role !== '人狼'); // 70%に修正
+                let result = chance(70) ? (targetPlayer.role === '人狼') : (targetPlayer.role !== '人狼');
                 if (isJammed) result = !result;
                 sysLogs[p.id].push(`【Day ${room.day}】【能力：見習い占い】${targetPlayer.name} を占った。結果：対象は「${result ? '人狼' : '市民陣営'}」だ（70%）`);
             }
@@ -157,7 +157,6 @@ io.on('connection', (socket) => {
             }
             if (p.role === '噂好きの市民') {
                 let didAct = room.actions[targetPlayer.id] && room.actions[targetPlayer.id].targetId !== 'skip';
-                // 噂好き本人のアクションは「かけられた」カウントから除外する
                 let wasTargeted = Object.keys(room.actions).some(actorId => actorId !== p.id && room.actions[actorId].targetId === targetPlayer.id);
                 
                 if (isJammed) { didAct = !didAct; wasTargeted = !wasTargeted; }
@@ -167,7 +166,7 @@ io.on('connection', (socket) => {
             if (p.role === 'ギャンブラー') {
                 if (p.gamblerUses >= 2) return sysLogs[p.id].push(`【Day ${room.day}】【能力：絶対占い】既に使用回数の上限（2回）に達している。`);
                 
-                p.gamblerUses++; // 使用回数をカウント
+                p.gamblerUses++;
                 let result = (targetPlayer.role === '人狼');
                 if (isJammed) result = !result;
                 sysLogs[p.id].push(`【Day ${room.day}】【能力：絶対占い】${targetPlayer.name} を占った。結果：対象は「${result ? '人狼' : '市民陣営'}」だ（100%）`);
@@ -186,7 +185,6 @@ io.on('connection', (socket) => {
         });
     }
 
-    // --- 夕方の投票と公開占い ---
     function resolveVotes(room) {
         const voteCounts = {};
         Object.values(room.votes).forEach(tId => voteCounts[tId] = (voteCounts[tId] || 0) + 1);
@@ -209,13 +207,13 @@ io.on('connection', (socket) => {
             }
         } else {
             const wolfAction = room.actions[room.wolfId] || {};
-            const jammer = room.currentJammer || {}; // 夜の妨害情報を呼び出し
+            const jammer = room.currentJammer || {};
             
-            let isBlack = chance(70) ? (targetPlayer.role === '人狼') : (targetPlayer.role !== '人狼'); // 70%に修正
+            let isBlack = chance(70) ? (targetPlayer.role === '人狼') : (targetPlayer.role !== '人狼');
 
-            if (targetPlayer.role === '人狼' && wolfAction.actionType === '3') isBlack = false; // 擬態
-            if (jammer.type === '2' && jammer.target === targetPlayer.id) isBlack = !isBlack; // 情報妨害（公開占いへの適用）
-            if (targetPlayer.role === 'ひねくれ者') isBlack = !isBlack; // ひねくれ者の反転
+            if (targetPlayer.role === '人狼' && wolfAction.actionType === '3') isBlack = false; // 擬態による公開占い防御
+            if (jammer.type === '2' && jammer.target === targetPlayer.id) isBlack = !isBlack;
+            if (targetPlayer.role === 'ひねくれ者') isBlack = !isBlack;
 
             publicLog = `【Day ${room.day} - 公開投票結果】${targetPlayer.name} は「${isBlack ? '人狼' : '市民陣営'}」だ（70%）`;
             io.to(room.id).emit('publicLog', publicLog);
