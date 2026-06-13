@@ -11,29 +11,23 @@
 
     <div id="home-screen" class="screen active">
         <h1 class="title">シュレディンガーの狼</h1>
-        
         <div class="panel">
             <input type="text" id="playerName" placeholder="プレイヤー名を入力">
             <button onclick="createRoom()" class="btn primary">部屋を作る</button>
-            
             <hr class="divider">
-            
             <input type="text" id="roomIdInput" placeholder="部屋IDを入力 (例: ABCD)">
             <button onclick="joinRoom()" class="btn secondary">部屋に参加する</button>
         </div>
-
         <button onclick="openRules()" class="btn info mt-20">ルール説明を読む</button>
     </div>
 
     <div id="lobby-screen" class="screen">
         <h2>待合室</h2>
         <p>部屋ID: <span id="displayRoomId" class="accent-text highlight">----</span></p>
-        
         <div class="panel">
             <h3>参加プレイヤー</h3>
             <ul id="playerList" class="player-list"></ul>
         </div>
-        
         <button onclick="startGame()" id="startBtn" class="btn primary mt-20">ゲーム開始</button>
         <button onclick="openRules()" class="btn info mt-20">ルール確認</button>
     </div>
@@ -44,17 +38,22 @@
             <button onclick="openRules()" class="btn-small info">ルール確認</button>
         </div>
         
-        <div class="panel" id="gameUI">
-            <p>ゲームのUIがここに表示されます。</p>
+        <div class="panel">
+            <h3 style="color: var(--btn-blue); margin: 0;">あなたの役職：<span id="myRoleDisplay"></span></h3>
         </div>
-        <button onclick="showScreen('result-screen')" class="btn secondary mt-20">（テスト）リザルトへ</button>
+
+        <div class="panel mt-20" id="actionArea">
+            <p>待機中...</p>
+        </div>
+
+        <div class="panel mt-20" id="logArea" style="height: 180px; overflow-y: auto; text-align: left; background: #0b0b0e; border-left: 3px solid var(--accent-gold);">
+            <div style="color: var(--text-sub); font-size: 0.9rem;">ここにシステムログが表示されます...</div>
+        </div>
     </div>
 
     <div id="result-screen" class="screen">
-        <h1 class="accent-text">ゲーム終了</h1>
-        <div class="panel" id="resultDetails">
-            <p>勝敗結果がここに表示されます。</p>
-        </div>
+        <h1 class="accent-text" id="winnerText">ゲーム終了</h1>
+        <div class="panel" id="resultDetails"></div>
         <button onclick="location.reload()" class="btn secondary mt-20">ホームへ戻る</button>
     </div>
 
@@ -62,18 +61,16 @@
         <div class="modal-content text-left">
             <span class="close-btn" onclick="closeRules()">&times;</span>
             <h2 class="accent-text" style="text-align: center;">ゲームのルール</h2>
-            
             <h3>■ 勝利条件（10ターン制）</h3>
             <p>【市民側】10日目の最終投票で人狼を処刑し、役職当てから逃げ切る。<br>
                【人狼側】10日生き延びるか、処刑後に全市民の役職を当てる。</p>
-            
             <h3>■ 役職一覧と確率</h3>
             <ul>
                 <li><strong>人狼:</strong> 毎晩【思考妨害】【情報妨害】【擬態】から1つを選び、市民の能力結果を「嘘」にする。</li>
-                <li><strong>見習い占い師:</strong> 指定した人の白黒を <strong>【60%】</strong> で正確に占う（40%で逆の結果）。</li>
-                <li><strong>ひねくれ者:</strong> 自身への公開占いが反転する。毎晩、指定した人が特定の役職ではない事を <strong>【100%】</strong> 知る。</li>
+                <li><strong>見習い占い師:</strong> 指定した人の白黒を <strong>【60%】</strong> で正確に占う（40%で逆）。</li>
+                <li><strong>ひねくれ者:</strong> 自身への公開占いが反転。毎晩、誰かが特定の役職ではない事を <strong>【100%】</strong> 知る。</li>
                 <li><strong>噂好きの市民:</strong> 毎晩、誰かのアクションの「矢印（対象）」を <strong>【100%】</strong> 知る。</li>
-                <li><strong>ギャンブラー:</strong> 1度だけ <strong>【100%】</strong> 正確な占いができるが、人狼に正体がバレる。妨害されると <strong>【確定で嘘】</strong> を掴む。</li>
+                <li><strong>ギャンブラー:</strong> 1度だけ <strong>【100%】</strong> 確実な占い（人狼にバレる）。妨害されると <strong>【確定で嘘】</strong>。</li>
                 <li><strong>プロファイラー:</strong> 指定した人の役職を <strong>【70%】</strong> の確率で当てる。</li>
                 <li><strong>トラッパー:</strong> 誰かに罠を張り、人狼からの妨害を <strong>【100%】</strong> 防いで通知を得る。</li>
             </ul>

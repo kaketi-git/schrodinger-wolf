@@ -4,77 +4,208 @@ const { Server } = require('socket.io');
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, { cors: { origin: "*" } });
+const io = new Server(server, { cors: { origin: "*" }, pingTimeout: 60000 });
 
 app.use(express.static('public'));
 
-// 部屋データを管理するオブジェクト
 const rooms = {};
+const CITIZEN_ROLES = ['見習い占い師', 'ひねくれ者', '噂好きの市民', 'ギャンブラー', 'プロファイラー', 'トラッパー'];
 
-// 確率計算用ヘルパー
+// 確率計算関数
 const chance = (percent) => Math.random() * 100 < percent;
 
 io.on('connection', (socket) => {
-    console.log(`[接続] Player: ${socket.id}`);
-
-    // 1. 部屋の作成
     socket.on('createRoom', (playerName) => {
-        // 4桁のランダムな英数字の部屋IDを生成
         const roomId = Math.random().toString(36).substring(2, 6).toUpperCase();
-        
-        rooms[roomId] = {
-            id: roomId,
-            players: [],
-            day: 1,
-            phase: 'lobby',
-            actions: {},
-            votes: {},
-            wolfId: null
-        };
+        rooms[roomId] = { id: roomId, players: [], day: 1, phase: 'lobby', actions: {}, votes: {}, wolfId: null, lastActive: Date.now() };
         joinRoomLogic(socket, roomId, playerName);
     });
 
-    // 2. 部屋への参加
-    socket.on('joinRoom', ({ roomId, playerName }) => {
-        joinRoomLogic(socket, roomId, playerName);
-    });
+    socket.on('joinRoom', ({ roomId, playerName }) => joinRoomLogic(socket, roomId, playerName));
 
-    // 入室処理の共通ロジック
     function joinRoomLogic(socket, roomId, playerName) {
         const room = rooms[roomId];
         if (room && room.phase === 'lobby') {
+            room.lastActive = Date.now();
             room.players.push({ id: socket.id, name: playerName, role: null, isAlive: true });
             socket.join(roomId);
-            
-            // 自分に入室成功を通知
             socket.emit('joinedRoom', roomId);
-            // 部屋の全員に最新のプレイヤーリストを送信
             io.to(roomId).emit('updatePlayers', room.players);
         } else {
-            socket.emit('error', '部屋が見つからないか、既にゲームが開始されています。');
+            socket.emit('error', '部屋が見つからないか、既に進行中です。');
         }
     }
 
-    // 3. ゲーム開始（役職の割り当て）
     socket.on('startGame', (roomId) => {
         const room = rooms[roomId];
-        // 開発テスト用に一時的に1人でも開始できるようにする場合は条件を変更できますが、本来は3人以上です
-        // if (!room || room.players.length < 3) return io.to(socket.id).emit('error', '3人以上必要です');
-        if (!room) return;
+        if (!room || room.players.length < 3) return io.to(socket.id).emit('error', '3人以上必要です');
+        room.lastActive = Date.now();
 
-        // ここから役職割り当て等のゲーム進行処理を追加していきます
-        room.phase = 'night_wolf';
-        io.to(roomId).emit('phaseUpdated', { day: room.day, phase: '夜（人狼の行動）' });
+        // 役職割り当て
+        const wolfIndex = Math.floor(Math.random() * room.players.length);
+        room.players.forEach((p, index) => {
+            if (index === wolfIndex) { p.role = '人狼'; room.wolfId = p.id; }
+            else { p.role = CITIZEN_ROLES[Math.floor(Math.random() * CITIZEN_ROLES.length)]; }
+            io.to(p.id).emit('yourRole', p.role);
+        });
+        startPhase(room, 'night_wolf');
     });
 
-    // 切断時の処理
-    socket.on('disconnect', () => {
-        console.log(`[切断] Player: ${socket.id}`);
-        // ※ 本格的な運用では、ここで部屋からプレイヤーを削除したり、切断状態を管理する処理が入ります
+    socket.on('submitAction', ({ roomId, targetId, actionType, guessRole }) => {
+        const room = rooms[roomId];
+        if(!room) return;
+        room.lastActive = Date.now();
+        room.actions[socket.id] = { targetId, actionType, guessRole };
+        
+        const alivePlayers = room.players.filter(p => p.isAlive);
+        if (room.phase === 'night_wolf' && room.actions[room.wolfId]) {
+            startPhase(room, 'night_citizen');
+        } else if (room.phase === 'night_citizen' && Object.keys(room.actions).length >= alivePlayers.length) {
+            resolveNightActions(room);
+            startPhase(room, 'day_discuss');
+        }
     });
+
+    socket.on('submitVote', ({ roomId, targetId }) => {
+        const room = rooms[roomId];
+        if(!room) return;
+        room.lastActive = Date.now();
+        room.votes[socket.id] = targetId;
+
+        const alivePlayers = room.players.filter(p => p.isAlive);
+        if (Object.keys(room.votes).length >= alivePlayers.length) {
+            resolveVotes(room);
+        }
+    });
+
+    socket.on('submitWolfGuess', ({ roomId, guesses }) => {
+        const room = rooms[roomId];
+        if(!room) return;
+        let correct = true;
+        room.players.filter(p => p.role !== '人狼' && p.isAlive).forEach(p => {
+            if (guesses[p.id] !== p.role) correct = false;
+        });
+
+        io.to(roomId).emit('gameOver', { 
+            winner: correct ? '人狼の逆転勝利！(全役職的中)' : '市民の勝利！(役職当て失敗)', 
+            players: room.players 
+        });
+    });
+
+    function startPhase(room, phase) {
+        room.phase = phase;
+        if (phase === 'night_wolf') { room.actions = {}; room.votes = {}; }
+        io.to(room.id).emit('phaseUpdated', { day: room.day, phase: room.phase, players: room.players });
+    }
+
+    // 夜の処理（確率と妨害の心臓部）
+    function resolveNightActions(room) {
+        const wolfAction = room.actions[room.wolfId] || {};
+        let sysLogs = {};
+        room.players.forEach(p => sysLogs[p.id] = []);
+
+        // 1. トラッパーの処理
+        let trappedWolf = false;
+        room.players.filter(p => p.role === 'トラッパー' && p.isAlive).forEach(t => {
+            const action = room.actions[t.id];
+            if (action && (wolfAction.targetId === action.targetId)) {
+                sysLogs[t.id].push("罠が発動！あなたが守った対象への人狼の妨害を防ぎました。");
+                trappedWolf = true;
+            }
+        });
+
+        const jammerTarget = trappedWolf ? null : wolfAction.targetId;
+        const jammerType = trappedWolf ? null : wolfAction.actionType;
+
+        // 2. 各市民のアクション解決
+        room.players.filter(p => p.role !== '人狼' && p.isAlive).forEach(p => {
+            const act = room.actions[p.id];
+            if (!act || !act.targetId) return;
+            const targetPlayer = room.players.find(tp => tp.id === act.targetId);
+
+            const isJammedAction = (jammerType === '1' && jammerTarget === p.id);
+            const isJammedTarget = (jammerType === '2' && jammerTarget === act.targetId);
+            const isJammed = isJammedAction || isJammedTarget;
+
+            if (p.role === '見習い占い師') {
+                let result = chance(60) ? (targetPlayer.role === '人狼') : (targetPlayer.role !== '人狼');
+                if (isJammed) result = !result;
+                sysLogs[p.id].push(`占い結果: ${targetPlayer.name} は【${result ? '黒' : '白'}】`);
+            }
+            if (p.role === 'ひねくれ者') {
+                const notRole = CITIZEN_ROLES[Math.floor(Math.random() * CITIZEN_ROLES.length)];
+                let resultText = isJammed ? `(妨害により情報なし)` : `${targetPlayer.name} は【${notRole}】ではない`;
+                sysLogs[p.id].push(`あら探し: ${resultText}`);
+            }
+            if (p.role === '噂好きの市民') {
+                let arrowTarget = act.targetId;
+                if (isJammed) arrowTarget = room.players[Math.floor(Math.random() * room.players.length)].id;
+                const aName = room.players.find(tp => tp.id === arrowTarget)?.name || '誰か';
+                sysLogs[p.id].push(`噂: 昨晩、誰かが ${aName} にアクションしました。`);
+            }
+            if (p.role === 'ギャンブラー') {
+                let result = (targetPlayer.role === '人狼');
+                if (isJammed) result = !result; // 妨害時は確定で嘘
+                sysLogs[p.id].push(`確実な占い: ${targetPlayer.name} は【${result ? '黒' : '白'}】`);
+                if (targetPlayer.role !== '人狼') sysLogs[room.wolfId].push(`【警告】${p.name} がギャンブラーです！`);
+            }
+            if (p.role === 'プロファイラー') {
+                let result = chance(70) ? (targetPlayer.role === act.guessRole) : (targetPlayer.role !== act.guessRole);
+                if (isJammed) result = !result;
+                sysLogs[p.id].push(`プロファイル: ${targetPlayer.name} が ${act.guessRole} の可能性は【${result ? '高い' : '低い'}】`);
+            }
+        });
+
+        Object.keys(sysLogs).forEach(id => {
+            if (sysLogs[id].length > 0) io.to(id).emit('systemLogs', sysLogs[id]);
+        });
+    }
+
+    // 夕方の投票処理
+    function resolveVotes(room) {
+        const voteCounts = {};
+        Object.values(room.votes).forEach(tId => voteCounts[tId] = (voteCounts[tId] || 0) + 1);
+        const maxVotes = Math.max(...Object.values(voteCounts));
+        const targetId = Object.keys(voteCounts).find(id => voteCounts[id] === maxVotes);
+        const targetPlayer = room.players.find(p => p.id === targetId);
+
+        let publicLog = "";
+
+        if (room.day >= 10) {
+            // 10日目: 処刑
+            targetPlayer.isAlive = false;
+            publicLog = `【10日目 処刑】${targetPlayer.name} が処刑されました。`;
+            io.to(room.id).emit('publicLog', publicLog);
+            
+            if (targetPlayer.role === '人狼') {
+                room.phase = 'wolf_guess';
+                io.to(room.id).emit('phaseUpdated', { day: room.day, phase: room.phase, players: room.players });
+            } else {
+                io.to(room.id).emit('gameOver', { winner: '人狼の逃げ切り勝利！', players: room.players });
+            }
+        } else {
+            // 1〜9日目: 公開占い
+            const wolfAction = room.actions[room.wolfId] || {};
+            let isBlack = chance(60) ? (targetPlayer.role === '人狼') : (targetPlayer.role !== '人狼');
+
+            if (targetPlayer.role === '人狼' && wolfAction.actionType === '3') isBlack = false; // 擬態
+            if (targetPlayer.role === 'ひねくれ者') isBlack = !isBlack; // 反転
+
+            publicLog = `【公開投票結果】${targetPlayer.name} は【 ${isBlack ? '黒(60%)' : '白(60%)'} 】`;
+            io.to(room.id).emit('publicLog', publicLog);
+            
+            room.day++;
+            startPhase(room, 'night_wolf');
+        }
+    }
 });
+
+setInterval(() => {
+    const now = Date.now();
+    Object.keys(rooms).forEach(roomId => {
+        if (now - rooms[roomId].lastActive > 2 * 60 * 60 * 1000) delete rooms[roomId];
+    });
+}, 60 * 60 * 1000);
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
-});
+server.listen(PORT, () => console.log(`Server running on port ${PORT}`));

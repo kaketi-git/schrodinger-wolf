@@ -1,7 +1,6 @@
 {
-  "name": "uncertain-wolf",
+  "name": "schrodinger-wolf",
   "version": "1.0.0",
-  "description": "シュレディンガーの狼",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
