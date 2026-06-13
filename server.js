@@ -41,7 +41,6 @@ io.on('connection', (socket) => {
         if (!room || room.players.length < 3) return io.to(socket.id).emit('error', '3人以上必要です');
         room.lastActive = Date.now();
 
-        // 役職割り当て
         const wolfIndex = Math.floor(Math.random() * room.players.length);
         room.players.forEach((p, index) => {
             if (index === wolfIndex) { p.role = '人狼'; room.wolfId = p.id; }
@@ -98,7 +97,7 @@ io.on('connection', (socket) => {
         io.to(room.id).emit('phaseUpdated', { day: room.day, phase: room.phase, players: room.players });
     }
 
-    // 夜の処理（確率と妨害の心臓部）
+    // --- 夜の処理（ログの言い回しと能力の改修） ---
     function resolveNightActions(room) {
         const wolfAction = room.actions[room.wolfId] || {};
         let sysLogs = {};
@@ -109,7 +108,7 @@ io.on('connection', (socket) => {
         room.players.filter(p => p.role === 'トラッパー' && p.isAlive).forEach(t => {
             const action = room.actions[t.id];
             if (action && (wolfAction.targetId === action.targetId)) {
-                sysLogs[t.id].push("罠が発動！あなたが守った対象への人狼の妨害を防ぎました。");
+                sysLogs[t.id].push(`【罠の発動】あなたが守った対象への人狼の妨害を阻止した（100%）`);
                 trappedWolf = true;
             }
         });
@@ -130,29 +129,39 @@ io.on('connection', (socket) => {
             if (p.role === '見習い占い師') {
                 let result = chance(60) ? (targetPlayer.role === '人狼') : (targetPlayer.role !== '人狼');
                 if (isJammed) result = !result;
-                sysLogs[p.id].push(`占い結果: ${targetPlayer.name} は【${result ? '黒' : '白'}】`);
+                sysLogs[p.id].push(`【占い結果】${targetPlayer.name} は「${result ? '人狼' : '市民陣営'}」だ（60%）`);
             }
             if (p.role === 'ひねくれ者') {
-                const notRole = CITIZEN_ROLES[Math.floor(Math.random() * CITIZEN_ROLES.length)];
-                let resultText = isJammed ? `(妨害により情報なし)` : `${targetPlayer.name} は【${notRole}】ではない`;
-                sysLogs[p.id].push(`あら探し: ${resultText}`);
+                // 通常は自分以外の役職が選ばれる。妨害時は嘘（自分が本当になっている役職）を教えられる
+                let availableRoles = CITIZEN_ROLES.filter(r => r !== targetPlayer.role);
+                let notRole = availableRoles[Math.floor(Math.random() * availableRoles.length)];
+                if (isJammed && targetPlayer.role !== '人狼') notRole = targetPlayer.role; 
+                
+                sysLogs[p.id].push(`【あら探し結果】${targetPlayer.name} は「${notRole}」ではない（100%）`);
             }
             if (p.role === '噂好きの市民') {
-                let arrowTarget = act.targetId;
-                if (isJammed) arrowTarget = room.players[Math.floor(Math.random() * room.players.length)].id;
-                const aName = room.players.find(tp => tp.id === arrowTarget)?.name || '誰か';
-                sysLogs[p.id].push(`噂: 昨晩、誰かが ${aName} にアクションしました。`);
+                // アクションを起こしたか、かけられたかの両方を判定
+                let didAct = !!room.actions[targetPlayer.id];
+                let wasTargeted = Object.values(room.actions).some(a => a.targetId === targetPlayer.id);
+
+                if (isJammed) { didAct = !didAct; wasTargeted = !wasTargeted; }
+                
+                sysLogs[p.id].push(`【噂の調査】${targetPlayer.name} はアクションを「${didAct ? '起こした' : '起こしていない'}」（100%）`);
+                sysLogs[p.id].push(`【噂の調査】${targetPlayer.name} はアクションを「${wasTargeted ? 'かけられた' : 'かけられていない'}」（100%）`);
             }
             if (p.role === 'ギャンブラー') {
                 let result = (targetPlayer.role === '人狼');
-                if (isJammed) result = !result; // 妨害時は確定で嘘
-                sysLogs[p.id].push(`確実な占い: ${targetPlayer.name} は【${result ? '黒' : '白'}】`);
-                if (targetPlayer.role !== '人狼') sysLogs[room.wolfId].push(`【警告】${p.name} がギャンブラーです！`);
+                if (isJammed) result = !result;
+                sysLogs[p.id].push(`【絶対占い結果】${targetPlayer.name} は「${result ? '人狼' : '市民陣営'}」だ（100%）`);
+                if (targetPlayer.role !== '人狼') sysLogs[room.wolfId].push(`【警告】${p.name} がギャンブラーとして能力を使用しました。`);
             }
             if (p.role === 'プロファイラー') {
-                let result = chance(70) ? (targetPlayer.role === act.guessRole) : (targetPlayer.role !== act.guessRole);
+                // 確率を80%にアップ、言い回しを変更
+                let isCorrect = (targetPlayer.role === act.guessRole);
+                let result = chance(80) ? isCorrect : !isCorrect;
                 if (isJammed) result = !result;
-                sysLogs[p.id].push(`プロファイル: ${targetPlayer.name} が ${act.guessRole} の可能性は【${result ? '高い' : '低い'}】`);
+                
+                sysLogs[p.id].push(`【プロファイル結果】${targetPlayer.name} は「${act.guessRole}」${result ? 'だ' : 'ではない'}（80%）`);
             }
         });
 
@@ -161,7 +170,6 @@ io.on('connection', (socket) => {
         });
     }
 
-    // 夕方の投票処理
     function resolveVotes(room) {
         const voteCounts = {};
         Object.values(room.votes).forEach(tId => voteCounts[tId] = (voteCounts[tId] || 0) + 1);
@@ -172,7 +180,6 @@ io.on('connection', (socket) => {
         let publicLog = "";
 
         if (room.day >= 10) {
-            // 10日目: 処刑
             targetPlayer.isAlive = false;
             publicLog = `【10日目 処刑】${targetPlayer.name} が処刑されました。`;
             io.to(room.id).emit('publicLog', publicLog);
@@ -184,14 +191,13 @@ io.on('connection', (socket) => {
                 io.to(room.id).emit('gameOver', { winner: '人狼の逃げ切り勝利！', players: room.players });
             }
         } else {
-            // 1〜9日目: 公開占い
             const wolfAction = room.actions[room.wolfId] || {};
             let isBlack = chance(60) ? (targetPlayer.role === '人狼') : (targetPlayer.role !== '人狼');
 
-            if (targetPlayer.role === '人狼' && wolfAction.actionType === '3') isBlack = false; // 擬態
-            if (targetPlayer.role === 'ひねくれ者') isBlack = !isBlack; // 反転
+            if (targetPlayer.role === '人狼' && wolfAction.actionType === '3') isBlack = false;
+            if (targetPlayer.role === 'ひねくれ者') isBlack = !isBlack;
 
-            publicLog = `【公開投票結果】${targetPlayer.name} は【 ${isBlack ? '黒(60%)' : '白(60%)'} 】`;
+            publicLog = `【公開投票結果】${targetPlayer.name} は「${isBlack ? '人狼' : '市民陣営'}」だ（60%）`;
             io.to(room.id).emit('publicLog', publicLog);
             
             room.day++;
