@@ -1,0 +1,139 @@
+/* ベース設定 */
+:root {
+    --bg-color: #121216;
+    --panel-bg: #1e1e24;
+    --text-main: #e0e0e0;
+    --accent-gold: #c5a059;
+    --btn-blue: #4682b4;
+    --btn-dark: #3a3a45;
+}
+
+body {
+    background-color: var(--bg-color);
+    color: var(--text-main);
+    font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+    text-align: center;
+    margin: 0;
+    padding: 20px;
+}
+
+/* 画面の切り替えロジック */
+.screen { display: none; }
+.screen.active { display: block; animation: fadeIn 0.3s ease; }
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* タイトル・テキスト装飾 */
+.title {
+    font-size: 2rem;
+    letter-spacing: 2px;
+    margin-bottom: 30px;
+}
+.accent-text { color: var(--accent-gold); }
+.highlight { font-size: 1.5rem; font-weight: bold; background: #2a2a35; padding: 5px 15px; border-radius: 5px;}
+.text-left { text-align: left; }
+.mt-20 { margin-top: 20px; }
+
+/* パネル（枠） */
+.panel {
+    background-color: var(--panel-bg);
+    border: 1px solid var(--btn-dark);
+    border-radius: 8px;
+    padding: 20px;
+    max-width: 500px;
+    margin: 0 auto;
+}
+
+/* 入力フォーム・ボタン */
+input[type="text"] {
+    width: calc(100% - 24px);
+    padding: 10px;
+    margin-bottom: 10px;
+    background-color: #2a2a35;
+    color: white;
+    border: 1px solid #555;
+    border-radius: 4px;
+    font-size: 1rem;
+}
+
+.btn {
+    width: 100%;
+    padding: 12px;
+    font-size: 1rem;
+    font-weight: bold;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+.btn.primary { background-color: var(--btn-blue); }
+.btn.primary:hover { background-color: #5a9bd4; }
+.btn.secondary { background-color: var(--btn-dark); }
+.btn.secondary:hover { background-color: #4a4a55; }
+.btn.info { background-color: transparent; border: 1px solid var(--accent-gold); color: var(--accent-gold); }
+.btn.info:hover { background-color: rgba(197, 160, 89, 0.1); }
+
+.divider { border-color: var(--btn-dark); margin: 20px 0; }
+
+/* ゲーム画面ヘッダー */
+.game-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--btn-dark);
+    padding-bottom: 10px;
+    margin-bottom: 20px;
+}
+.btn-small {
+    padding: 5px 10px;
+    font-size: 0.8rem;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+/* モーダル（ポップアップ）のスタイル */
+.modal {
+    display: none; /* 初期状態は非表示 */
+    position: fixed;
+    z-index: 100;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7);
+}
+
+.modal-content {
+    background-color: var(--bg-color);
+    border: 2px solid var(--accent-gold);
+    margin: 10% auto;
+    padding: 20px;
+    width: 90%;
+    max-width: 500px;
+    border-radius: 8px;
+    position: relative;
+    max-height: 80vh;
+    overflow-y: auto;
+}
+
+.close-btn {
+    color: var(--text-sub);
+    position: absolute;
+    top: 10px;
+    right: 15px;
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+}
+.close-btn:hover { color: white; }
+
+.modal-content ul { padding-left: 20px; }
+.modal-content li { margin-bottom: 10px; line-height: 1.5; font-size: 0.95rem; }
+
+/* リスト */
+.player-list { list-style: none; padding: 0; margin: 0; }
+.player-list li { background-color: #2a2a35; padding: 10px; margin-bottom: 5px; border-radius: 4px; }
