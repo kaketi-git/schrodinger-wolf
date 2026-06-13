@@ -11,7 +11,6 @@ app.use(express.static('public'));
 const rooms = {};
 const CITIZEN_ROLES = ['見習い占い師', 'ひねくれ者', '噂好きの市民', 'ギャンブラー', 'プロファイラー', 'トラッパー'];
 
-// 確率計算関数
 const chance = (percent) => Math.random() * 100 < percent;
 
 io.on('connection', (socket) => {
@@ -27,7 +26,7 @@ io.on('connection', (socket) => {
         const room = rooms[roomId];
         if (room && room.phase === 'lobby') {
             room.lastActive = Date.now();
-            room.players.push({ id: socket.id, name: playerName, role: null, isAlive: true });
+            room.players.push({ id: socket.id, name: playerName, role: null, isAlive: true, hasUsedGambler: false });
             socket.join(roomId);
             socket.emit('joinedRoom', roomId);
             io.to(roomId).emit('updatePlayers', room.players);
@@ -43,6 +42,7 @@ io.on('connection', (socket) => {
 
         const wolfIndex = Math.floor(Math.random() * room.players.length);
         room.players.forEach((p, index) => {
+            p.hasUsedGambler = false; // ギャンブラーの使用フラグ初期化
             if (index === wolfIndex) { p.role = '人狼'; room.wolfId = p.id; }
             else { p.role = CITIZEN_ROLES[Math.floor(Math.random() * CITIZEN_ROLES.length)]; }
             io.to(p.id).emit('yourRole', p.role);
@@ -97,30 +97,40 @@ io.on('connection', (socket) => {
         io.to(room.id).emit('phaseUpdated', { day: room.day, phase: room.phase, players: room.players });
     }
 
-    // --- 夜の処理（ログの言い回しと能力の改修） ---
+    // --- 夜の行動とログの処理 ---
     function resolveNightActions(room) {
-        const wolfAction = room.actions[room.wolfId] || {};
+        const wolfAction = room.actions[room.wolfId] || { targetId: 'skip' };
         let sysLogs = {};
         room.players.forEach(p => sysLogs[p.id] = []);
 
-        // 1. トラッパーの処理
+        // 1. トラッパーの判定
         let trappedWolf = false;
         room.players.filter(p => p.role === 'トラッパー' && p.isAlive).forEach(t => {
             const action = room.actions[t.id];
-            if (action && (wolfAction.targetId === action.targetId)) {
-                sysLogs[t.id].push(`【罠の発動】あなたが守った対象への人狼の妨害を阻止した（100%）`);
+            if (!action || action.targetId === 'skip') return;
+
+            const targetPlayer = room.players.find(tp => tp.id === action.targetId);
+            if (wolfAction.targetId === action.targetId) {
+                sysLogs[t.id].push(`【能力：罠設置】${targetPlayer.name} に罠を張った。結果：人狼の妨害を阻止した！（100%）`);
                 trappedWolf = true;
+            } else {
+                sysLogs[t.id].push(`【能力：罠設置】${targetPlayer.name} に罠を張った。結果：異常はなかった。（100%）`);
             }
         });
 
         const jammerTarget = trappedWolf ? null : wolfAction.targetId;
         const jammerType = trappedWolf ? null : wolfAction.actionType;
 
-        // 2. 各市民のアクション解決
+        // 2. 市民のアクション判定
         room.players.filter(p => p.role !== '人狼' && p.isAlive).forEach(p => {
             const act = room.actions[p.id];
-            if (!act || !act.targetId) return;
+            if (!act || act.targetId === 'skip') {
+                sysLogs[p.id].push(`【待機】今夜は能力を使用しなかった。`);
+                return;
+            }
+
             const targetPlayer = room.players.find(tp => tp.id === act.targetId);
+            if (!targetPlayer) return;
 
             const isJammedAction = (jammerType === '1' && jammerTarget === p.id);
             const isJammedTarget = (jammerType === '2' && jammerTarget === act.targetId);
@@ -129,39 +139,36 @@ io.on('connection', (socket) => {
             if (p.role === '見習い占い師') {
                 let result = chance(60) ? (targetPlayer.role === '人狼') : (targetPlayer.role !== '人狼');
                 if (isJammed) result = !result;
-                sysLogs[p.id].push(`【占い結果】${targetPlayer.name} は「${result ? '人狼' : '市民陣営'}」だ（60%）`);
+                sysLogs[p.id].push(`【能力：見習い占い】${targetPlayer.name} を占った。結果：対象は「${result ? '人狼' : '市民陣営'}」だ（60%）`);
             }
             if (p.role === 'ひねくれ者') {
-                // 通常は自分以外の役職が選ばれる。妨害時は嘘（自分が本当になっている役職）を教えられる
                 let availableRoles = CITIZEN_ROLES.filter(r => r !== targetPlayer.role);
                 let notRole = availableRoles[Math.floor(Math.random() * availableRoles.length)];
                 if (isJammed && targetPlayer.role !== '人狼') notRole = targetPlayer.role; 
-                
-                sysLogs[p.id].push(`【あら探し結果】${targetPlayer.name} は「${notRole}」ではない（100%）`);
+                sysLogs[p.id].push(`【能力：あら探し】${targetPlayer.name} を調べた。結果：対象は「${notRole}」ではない（100%）`);
             }
             if (p.role === '噂好きの市民') {
-                // アクションを起こしたか、かけられたかの両方を判定
-                let didAct = !!room.actions[targetPlayer.id];
+                let didAct = room.actions[targetPlayer.id] && room.actions[targetPlayer.id].targetId !== 'skip';
                 let wasTargeted = Object.values(room.actions).some(a => a.targetId === targetPlayer.id);
-
                 if (isJammed) { didAct = !didAct; wasTargeted = !wasTargeted; }
-                
-                sysLogs[p.id].push(`【噂の調査】${targetPlayer.name} はアクションを「${didAct ? '起こした' : '起こしていない'}」（100%）`);
-                sysLogs[p.id].push(`【噂の調査】${targetPlayer.name} はアクションを「${wasTargeted ? 'かけられた' : 'かけられていない'}」（100%）`);
+                sysLogs[p.id].push(`【能力：噂の調査】${targetPlayer.name} を調べた。結果：アクションを「${didAct ? '起こした' : '起こしていない'}」（100%）`);
+                sysLogs[p.id].push(`【能力：噂の調査】${targetPlayer.name} を調べた。結果：アクションを「${wasTargeted ? 'かけられた' : 'かけられていない'}」（100%）`);
             }
             if (p.role === 'ギャンブラー') {
+                // 既に使っていたら不発にする（UIでも防ぐが念のため）
+                if (p.hasUsedGambler) return sysLogs[p.id].push(`【能力：絶対占い】既に使用済みのため発動できなかった。`);
+                
+                p.hasUsedGambler = true; // 使用済みにする
                 let result = (targetPlayer.role === '人狼');
                 if (isJammed) result = !result;
-                sysLogs[p.id].push(`【絶対占い結果】${targetPlayer.name} は「${result ? '人狼' : '市民陣営'}」だ（100%）`);
+                sysLogs[p.id].push(`【能力：絶対占い】${targetPlayer.name} を占った。結果：対象は「${result ? '人狼' : '市民陣営'}」だ（100%）`);
                 if (targetPlayer.role !== '人狼') sysLogs[room.wolfId].push(`【警告】${p.name} がギャンブラーとして能力を使用しました。`);
             }
             if (p.role === 'プロファイラー') {
-                // 確率を80%にアップ、言い回しを変更
                 let isCorrect = (targetPlayer.role === act.guessRole);
                 let result = chance(80) ? isCorrect : !isCorrect;
                 if (isJammed) result = !result;
-                
-                sysLogs[p.id].push(`【プロファイル結果】${targetPlayer.name} は「${act.guessRole}」${result ? 'だ' : 'ではない'}（80%）`);
+                sysLogs[p.id].push(`【能力：プロファイル】${targetPlayer.name} が「${act.guessRole}」か調べた。結果：その可能性は「${result ? '高い' : '低い'}」だ（80%）`);
             }
         });
 

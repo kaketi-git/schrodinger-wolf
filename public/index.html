@@ -61,9 +61,25 @@
         <div class="modal-content text-left">
             <span class="close-btn" onclick="closeRules()">&times;</span>
             <h2 class="accent-text" style="text-align: center;">ゲームのルール</h2>
-            <h3>■ 勝利条件（10ターン制）</h3>
+            
+            <h3>■ 勝利条件</h3>
             <p>【市民側】10日目の最終投票で人狼を処刑し、役職当てから逃げ切る。<br>
                【人狼側】10日生き延びるか、処刑後に全市民の役職を当てる。</p>
+
+            <h3>■ 1日の流れ</h3>
+            <ol style="padding-left: 20px; font-size: 0.95rem; line-height: 1.5;">
+                <li><strong>夜（人狼の行動）:</strong> 人狼が妨害スキルを使います。</li>
+                <li><strong>夜（市民の行動）:</strong> 各市民が役職能力を使います（妨害されると嘘の結果になります）。</li>
+                <li><strong>昼（議論）:</strong> ログをもとに話し合います（※途中の脱落者はいません）。</li>
+                <li><strong>夕方（公開投票）:</strong> 多数決を行い、最多票の人が「公開占い」されます。※10日目のみ処刑投票です。</li>
+            </ol>
+
+            <h3>■ 公開投票（占い）とは？</h3>
+            <p style="font-size: 0.95rem; line-height: 1.5;">
+                通常の人狼の処刑とは異なり、1〜9日目は<strong>全員に共有される占い（精度60%）</strong>として機能します。<br>
+                ただし、人狼の「擬態」や「ひねくれ者」の特性によって結果が反転・操作されるため、絶対の真実ではありません。
+            </p>
+            
             <h3>■ 役職一覧と確率</h3>
             <ul>
                 <li><strong>人狼:</strong> 毎晩【思考妨害】【情報妨害】【擬態】から選び、市民の能力結果を「嘘」にする。</li>
