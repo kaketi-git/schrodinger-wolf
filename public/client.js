@@ -4,6 +4,17 @@ let myRole = '';
 let roomPlayers = [];
 const rolesList = ['見習い占い師', 'ひねくれ者', '噂好きの市民', 'ギャンブラー', 'プロファイラー', 'トラッパー'];
 
+// 役職と画像のファイル名の紐付け
+const roleImageMap = {
+    '人狼': 'wolf.png',
+    '見習い占い師': 'seer.png',
+    'ひねくれ者': 'twisted.png',
+    '噂好きの市民': 'gossip.png',
+    'ギャンブラー': 'gambler.png',
+    'プロファイラー': 'profiler.png',
+    'トラッパー': 'trapper.png'
+};
+
 function showScreen(screenId) {
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     document.getElementById(screenId).classList.add('active');
@@ -41,11 +52,20 @@ socket.on('updatePlayers', (players) => {
 
 socket.on('error', (msg) => alert(msg));
 
+// ★ 役職を受け取った時に画像も切り替える
 socket.on('yourRole', (role) => {
     myRole = role;
     document.getElementById('myRoleDisplay').innerText = role;
+    
+    // 画像を動的に設定
+    const imgElement = document.getElementById('roleImage');
+    if (roleImageMap[role]) {
+        imgElement.src = `images/${roleImageMap[role]}`;
+        imgElement.style.display = 'block';
+    }
 });
 
+// 以下、前回のコードと同じ（phaseUpdated, renderActionUI など）...
 socket.on('phaseUpdated', (data) => {
     roomPlayers = data.players;
     const phaseNames = { night_wolf: '夜 (人狼の行動)', night_citizen: '夜 (市民の行動)', day_discuss: '昼 (議論)', wolf_guess: '最終日 (役職当て)' };

@@ -134,6 +134,46 @@ input[type="text"] {
 .modal-content ul { padding-left: 20px; }
 .modal-content li { margin-bottom: 10px; line-height: 1.5; font-size: 0.95rem; }
 
+/* --- 画像用のスタイル --- */
+.screen-img {
+    width: 100%;
+    max-width: 400px;
+    height: auto;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
+}
+
+.role-panel {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.role-img {
+    width: 120px;
+    height: 120px;
+    object-fit: cover;
+    border-radius: 50%;
+    border: 3px solid var(--accent-gold);
+    box-shadow: 0 0 15px rgba(197, 160, 89, 0.4);
+}
+
+.rule-list li {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+.rule-icon {
+    width: 30px;
+    height: 30px;
+    border-radius: 4px;
+    object-fit: cover;
+    flex-shrink: 0;
+}
+
 /* リスト */
 .player-list { list-style: none; padding: 0; margin: 0; }
 .player-list li { background-color: #2a2a35; padding: 10px; margin-bottom: 5px; border-radius: 4px; }

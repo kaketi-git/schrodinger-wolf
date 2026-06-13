@@ -11,6 +11,7 @@
 
     <div id="home-screen" class="screen active">
         <h1 class="title">シュレディンガーの狼</h1>
+        <img src="images/home.png" alt="Home" class="screen-img" onerror="this.style.display='none'">
         <div class="panel">
             <input type="text" id="playerName" placeholder="プレイヤー名を入力">
             <button onclick="createRoom()" class="btn primary">部屋を作る</button>
@@ -23,6 +24,7 @@
 
     <div id="lobby-screen" class="screen">
         <h2>待合室</h2>
+        <img src="images/lobby.png" alt="Lobby" class="screen-img" onerror="this.style.display='none'">
         <p>部屋ID: <span id="displayRoomId" class="accent-text highlight">----</span></p>
         <div class="panel">
             <h3>参加プレイヤー</h3>
@@ -38,8 +40,9 @@
             <button onclick="openRules()" class="btn-small info">ルール確認</button>
         </div>
         
-        <div class="panel">
-            <h3 style="color: var(--btn-blue); margin: 0;">あなたの役職：<span id="myRoleDisplay"></span></h3>
+        <div class="panel role-panel">
+            <h3 style="color: var(--btn-blue); margin: 0; margin-bottom: 10px;">あなたの役職：<span id="myRoleDisplay"></span></h3>
+            <img id="roleImage" src="" alt="Role Image" class="role-img" onerror="this.style.display='none'">
         </div>
 
         <div class="panel mt-20" id="actionArea">
@@ -53,6 +56,7 @@
 
     <div id="result-screen" class="screen">
         <h1 class="accent-text" id="winnerText">ゲーム終了</h1>
+        <img src="images/result.png" alt="Result" class="screen-img" onerror="this.style.display='none'">
         <div class="panel" id="resultDetails"></div>
         <button onclick="location.reload()" class="btn secondary mt-20">ホームへ戻る</button>
     </div>
@@ -71,24 +75,24 @@
                 <li><strong>夜（人狼の行動）:</strong> 人狼が妨害スキルを使います。</li>
                 <li><strong>夜（市民の行動）:</strong> 各市民が役職能力を使います（妨害されると嘘の結果になります）。</li>
                 <li><strong>昼（議論）:</strong> ログをもとに話し合います（※途中の脱落者はいません）。</li>
-                <li><strong>夕方（公開投票）:</strong> 多数決を行い、最多票の人が「公開占い」されます。※10日目のみ処刑投票です。</li>
+                <li><strong>夕方（公開投票）:</strong> 多数決で最多票の人が「公開占い」されます。※10日目のみ処刑。</li>
             </ol>
 
-            <h3>■ 公開投票（占い）とは？</h3>
-            <p style="font-size: 0.95rem; line-height: 1.5;">
-                通常の人狼の処刑とは異なり、1〜9日目は<strong>全員に共有される占い（精度60%）</strong>として機能します。<br>
-                ただし、人狼の「擬態」や「ひねくれ者」の特性によって結果が反転・操作されるため、絶対の真実ではありません。
-            </p>
-            
+            <h3>■ 人狼の妨害能力</h3>
+            <ul class="rule-list">
+                <li><img src="images/wolf.png" class="rule-icon" onerror="this.style.display='none'"> <strong>思考妨害:</strong> 指定した人が得る能力結果を「嘘」にする。</li>
+                <li><img src="images/wolf.png" class="rule-icon" onerror="this.style.display='none'"> <strong>情報妨害:</strong> 指定した人に向けられた調査結果を「嘘」にする。</li>
+                <li><img src="images/wolf.png" class="rule-icon" onerror="this.style.display='none'"> <strong>擬態:</strong> 公開占いで自分が選ばれた時、必ず「市民陣営(白)」にさせる。</li>
+            </ul>
+
             <h3>■ 役職一覧と確率</h3>
-            <ul>
-                <li><strong>人狼:</strong> 毎晩【思考妨害】【情報妨害】【擬態】から選び、市民の能力結果を「嘘」にする。</li>
-                <li><strong>見習い占い師:</strong> 指定した人の白黒を <strong>【60%】</strong> で正確に占う（40%で逆）。</li>
-                <li><strong>ひねくれ者:</strong> 自身への公開占いが反転。指定した人が特定の役職ではない事を <strong>【100%】</strong> 知る。</li>
-                <li><strong>噂好きの市民:</strong> 指定した人がアクションを「起こしたか」「かけられたか」の両方を <strong>【100%】</strong> 知る。</li>
-                <li><strong>ギャンブラー:</strong> 1度だけ <strong>【100%】</strong> 確実な占い（人狼にバレる）。妨害されると <strong>【確定で嘘】</strong>。</li>
-                <li><strong>プロファイラー:</strong> 指定した人の役職を <strong>【80%】</strong> の確率で当てる。</li>
-                <li><strong>トラッパー:</strong> 誰かに罠を張り、人狼からの妨害を <strong>【100%】</strong> 防いで通知を得る。</li>
+            <ul class="rule-list">
+                <li><img src="images/seer.png" class="rule-icon" onerror="this.style.display='none'"> <strong>見習い占い師:</strong> 指定した人の白黒を <strong>【60%】</strong> で正確に占う（40%で逆）。</li>
+                <li><img src="images/twisted.png" class="rule-icon" onerror="this.style.display='none'"> <strong>ひねくれ者:</strong> 自身への公開占いが反転。誰かが特定の役職ではない事を <strong>【100%】</strong> 知る。</li>
+                <li><img src="images/gossip.png" class="rule-icon" onerror="this.style.display='none'"> <strong>噂好きの市民:</strong> 誰かがアクションを「起こしたか」「かけられたか」の両方を <strong>【100%】</strong> 知る。</li>
+                <li><img src="images/gambler.png" class="rule-icon" onerror="this.style.display='none'"> <strong>ギャンブラー:</strong> 1度だけ <strong>【100%】</strong> 確実な占い。ただし妨害されると <strong>【確定で嘘】</strong> を掴む。</li>
+                <li><img src="images/profiler.png" class="rule-icon" onerror="this.style.display='none'"> <strong>プロファイラー:</strong> 指定した人の役職を <strong>【70%】</strong> の確率で当てる。</li>
+                <li><img src="images/trapper.png" class="rule-icon" onerror="this.style.display='none'"> <strong>トラッパー:</strong> 誰かに罠を張り、人狼からの妨害を <strong>【100%】</strong> 防いで通知を得る。</li>
             </ul>
         </div>
     </div>

@@ -164,11 +164,11 @@ io.on('connection', (socket) => {
                 sysLogs[p.id].push(`【能力：絶対占い】${targetPlayer.name} を占った。結果：対象は「${result ? '人狼' : '市民陣営'}」だ（100%）`);
                 if (targetPlayer.role !== '人狼') sysLogs[room.wolfId].push(`【警告】${p.name} がギャンブラーとして能力を使用しました。`);
             }
-            if (p.role === 'プロファイラー') {
+if (p.role === 'プロファイラー') {
                 let isCorrect = (targetPlayer.role === act.guessRole);
-                let result = chance(80) ? isCorrect : !isCorrect;
+                let result = chance(70) ? isCorrect : !isCorrect;
                 if (isJammed) result = !result;
-                sysLogs[p.id].push(`【能力：プロファイル】${targetPlayer.name} が「${act.guessRole}」か調べた。結果：その可能性は「${result ? '高い' : '低い'}」だ（80%）`);
+                sysLogs[p.id].push(`【能力：プロファイル】${targetPlayer.name} が「${act.guessRole}」か調べた。結果：その可能性は「${result ? '高い' : '低い'}」だ（70%）`);
             }
         });
 
