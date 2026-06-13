@@ -4,7 +4,6 @@ let myRole = '';
 let roomPlayers = [];
 const rolesList = ['見習い占い師', 'ひねくれ者', '噂好きの市民', 'ギャンブラー', 'プロファイラー', 'トラッパー'];
 
-// 役職と画像のファイル名の紐付け
 const roleImageMap = {
     '人狼': 'wolf.png',
     '見習い占い師': 'seer.png',
@@ -52,12 +51,9 @@ socket.on('updatePlayers', (players) => {
 
 socket.on('error', (msg) => alert(msg));
 
-// ★ 役職を受け取った時に画像も切り替える
 socket.on('yourRole', (role) => {
     myRole = role;
     document.getElementById('myRoleDisplay').innerText = role;
-    
-    // 画像を動的に設定
     const imgElement = document.getElementById('roleImage');
     if (roleImageMap[role]) {
         imgElement.src = `images/${roleImageMap[role]}`;
@@ -65,7 +61,6 @@ socket.on('yourRole', (role) => {
     }
 });
 
-// 以下、前回のコードと同じ（phaseUpdated, renderActionUI など）...
 socket.on('phaseUpdated', (data) => {
     roomPlayers = data.players;
     const phaseNames = { night_wolf: '夜 (人狼の行動)', night_citizen: '夜 (市民の行動)', day_discuss: '昼 (議論)', wolf_guess: '最終日 (役職当て)' };
@@ -97,11 +92,8 @@ function renderActionUI(phase, day) {
     const area = document.getElementById('actionArea');
     area.innerHTML = '';
     
-    // 自分のデータと、生きている全プレイヤー（自分を含む）のリストを取得
     const me = roomPlayers.find(p => p.id === socket.id);
     const alivePlayers = roomPlayers.filter(p => p.isAlive);
-    
-    // ターゲット選択のベースHTML（スキップ ＋ 全員）
     const baseOptions = `<option value="skip">能力を使わない (待機)</option>` + 
                         alivePlayers.map(p => `<option value="${p.id}">${p.id === socket.id ? p.name + ' (自分)' : p.name}</option>`).join('');
 
@@ -122,26 +114,32 @@ function renderActionUI(phase, day) {
         }
     } else if (phase === 'night_citizen') {
         if (myRole !== '人狼') {
-            // ギャンブラーが既に使用済みの場合の専用UI
-            if (myRole === 'ギャンブラー' && me && me.hasUsedGambler) {
-                area.innerHTML = `
-                    <p style="color: var(--accent-gold); font-weight:bold;">※絶対占いは既に使用済みです。</p>
-                    <select id="target" style="display:none;"><option value="skip">skip</option></select>
-                    <button onclick="submitAction()" class="btn secondary mt-20">待機する</button>
-                `;
-            } else {
-                let extraUI = '';
-                if (myRole === 'プロファイラー') {
-                    extraUI = `<p style="margin-top:10px;">予想する役職</p><select id="guessRole" style="width:100%;">${rolesList.map(r => `<option value="${r}">${r}</option>`).join('')}</select>`;
+            // ギャンブラーの回数制御
+            if (myRole === 'ギャンブラー' && me) {
+                if (me.gamblerUses >= 2) {
+                    area.innerHTML = `
+                        <p style="color: var(--accent-gold); font-weight:bold;">※絶対占いは使用回数の上限（2回）に達しました。</p>
+                        <select id="target" style="display:none;"><option value="skip">skip</option></select>
+                        <button onclick="submitAction()" class="btn secondary mt-20">待機する</button>
+                    `;
+                    return;
                 }
-                area.innerHTML = `<p>能力の対象を選択</p><select id="target" style="width:100%;">${baseOptions}</select> ${extraUI} <button onclick="submitAction()" class="btn primary mt-20">行動決定</button>`;
             }
+
+            // それ以外の市民（または2回未満のギャンブラー）
+            let extraUI = '';
+            if (myRole === 'ギャンブラー') {
+                extraUI = `<p style="color: var(--accent-gold); font-size: 0.9em; margin-top: 10px;">残り使用回数: ${2 - me.gamblerUses}回</p>`;
+            } else if (myRole === 'プロファイラー') {
+                extraUI = `<p style="margin-top:10px;">予想する役職</p><select id="guessRole" style="width:100%;">${rolesList.map(r => `<option value="${r}">${r}</option>`).join('')}</select>`;
+            }
+            area.innerHTML = `<p>能力の対象を選択</p><select id="target" style="width:100%;">${baseOptions}</select> ${extraUI} <button onclick="submitAction()" class="btn primary mt-20">行動決定</button>`;
+            
         } else {
             area.innerHTML = `<p style="color: var(--text-sub);">市民が行動中です。お待ちください...</p>`;
         }
     } else if (phase === 'day_discuss') {
         const voteBtnText = day >= 10 ? '処刑する人に投票' : '公開占いする人に投票';
-        // 投票は自分以外も選べるが、スキップはできない仕様とする
         area.innerHTML = `<p>議論終了後、投票してください</p><select id="target" style="width:100%;">${alivePlayers.map(p => `<option value="${p.id}">${p.id === socket.id ? p.name + ' (自分)' : p.name}</option>`).join('')}</select><button onclick="submitVote()" class="btn primary mt-20">${voteBtnText}</button>`;
     } else if (phase === 'wolf_guess') {
         if (myRole === '人狼') {
@@ -156,16 +154,13 @@ function renderActionUI(phase, day) {
     }
 }
 
-// 人狼のスキル選択によってターゲットを自動切り替えする関数（グローバルスコープ）
 window.updateWolfTarget = function() {
     const skill = document.getElementById('skill').value;
     const targetSelect = document.getElementById('target');
     
     if (skill === '3') {
-        // 能力3：擬態 を選んだ場合は、強制的に自分のみ選択可能にする
         targetSelect.innerHTML = `<option value="${socket.id}">自分</option>`;
     } else {
-        // それ以外は通常通り全員＋スキップ
         const alivePlayers = roomPlayers.filter(p => p.isAlive);
         targetSelect.innerHTML = `<option value="skip">能力を使わない (待機)</option>` + 
                                  alivePlayers.map(p => `<option value="${p.id}">${p.id === socket.id ? p.name + ' (自分)' : p.name}</option>`).join('');

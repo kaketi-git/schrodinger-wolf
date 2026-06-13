@@ -61,6 +61,7 @@
         <button onclick="location.reload()" class="btn secondary mt-20">ホームへ戻る</button>
     </div>
 
+ <!-- ⑤ ルールモーダル -->
     <div id="rules-modal" class="modal">
         <div class="modal-content text-left">
             <span class="close-btn" onclick="closeRules()">&times;</span>
@@ -75,22 +76,22 @@
                 <li><strong>夜（人狼の行動）:</strong> 人狼が妨害スキルを使います。</li>
                 <li><strong>夜（市民の行動）:</strong> 各市民が役職能力を使います（妨害されると嘘の結果になります）。</li>
                 <li><strong>昼（議論）:</strong> ログをもとに話し合います（※途中の脱落者はいません）。</li>
-                <li><strong>夕方（公開投票）:</strong> 多数決で最多票の人が「公開占い」されます。※10日目のみ処刑。</li>
+                <li><strong>夕方（公開投票）:</strong> 多数決で最多票の人が「公開占い」されます（精度70%）。※10日目のみ処刑。</li>
             </ol>
 
             <h3>■ 人狼の妨害能力</h3>
             <ul class="rule-list">
                 <li><img src="images/wolf.png" class="rule-icon" onerror="this.style.display='none'"> <strong>思考妨害:</strong> 指定した人が得る能力結果を「嘘」にする。</li>
-                <li><img src="images/wolf.png" class="rule-icon" onerror="this.style.display='none'"> <strong>情報妨害:</strong> 指定した人に向けられた調査結果を「嘘」にする。</li>
+                <li><img src="images/wolf.png" class="rule-icon" onerror="this.style.display='none'"> <strong>情報妨害:</strong> 指定した人に向けられた夜の調査や、その日の「公開占い」の結果を「嘘」にする。</li>
                 <li><img src="images/wolf.png" class="rule-icon" onerror="this.style.display='none'"> <strong>擬態:</strong> 公開占いで自分が選ばれた時、必ず「市民陣営(白)」にさせる。</li>
             </ul>
 
             <h3>■ 役職一覧と確率</h3>
             <ul class="rule-list">
-                <li><img src="images/seer.png" class="rule-icon" onerror="this.style.display='none'"> <strong>見習い占い師:</strong> 指定した人の白黒を <strong>【60%】</strong> で正確に占う（40%で逆）。</li>
+                <li><img src="images/seer.png" class="rule-icon" onerror="this.style.display='none'"> <strong>見習い占い師:</strong> 指定した人の白黒を <strong>【70%】</strong> で正確に占う（30%で逆）。</li>
                 <li><img src="images/twisted.png" class="rule-icon" onerror="this.style.display='none'"> <strong>ひねくれ者:</strong> 自身への公開占いが反転。誰かが特定の役職ではない事を <strong>【100%】</strong> 知る。</li>
-                <li><img src="images/gossip.png" class="rule-icon" onerror="this.style.display='none'"> <strong>噂好きの市民:</strong> 誰かがアクションを「起こしたか」「かけられたか」の両方を <strong>【100%】</strong> 知る。</li>
-                <li><img src="images/gambler.png" class="rule-icon" onerror="this.style.display='none'"> <strong>ギャンブラー:</strong> 1度だけ <strong>【100%】</strong> 確実な占い。ただし妨害されると <strong>【確定で嘘】</strong> を掴む。</li>
+                <li><img src="images/gossip.png" class="rule-icon" onerror="this.style.display='none'"> <strong>噂好きの市民:</strong> 誰かが「誰かにアクションを起こしたか」「誰かからアクションをかけられたか」の両方を <strong>【100%】</strong> 知る（※自分のアクションは感知しない）。</li>
+                <li><img src="images/gambler.png" class="rule-icon" onerror="this.style.display='none'"> <strong>ギャンブラー:</strong> <strong>【2回】</strong> だけ <strong>【100%】</strong> 確実な占い。ただし1度でも使うと人狼にバレる。妨害されると <strong>【確定で嘘】</strong> を掴む。</li>
                 <li><img src="images/profiler.png" class="rule-icon" onerror="this.style.display='none'"> <strong>プロファイラー:</strong> 指定した人の役職を <strong>【70%】</strong> の確率で当てる。</li>
                 <li><img src="images/trapper.png" class="rule-icon" onerror="this.style.display='none'"> <strong>トラッパー:</strong> 誰かに罠を張り、人狼からの妨害を <strong>【100%】</strong> 防いで通知を得る。</li>
             </ul>
